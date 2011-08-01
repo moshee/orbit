@@ -1,27 +1,39 @@
 # encoding: UTF-8
 # file: triggers.rb
 #
-# This file contains the Triggers module which holds all of the triggers.
-# It is included in the RBot class, so all of RBot's instance variables
-# are available for use (@source, @)
+# This file contains the Triggers module which holds all of the triggers. It
+# should not be run by itself. The module is included in the RBot class, so all
+# of RBot's instance variables are available for use (@source, @nick, @target,
+# @message, etc)
+#
+# All methods defined here are sent exactly one string, whether it be empty or
+# not, so they need a space to accept them (or else we get an argument error).
+#
+# Later, I will probably try a mechanism to use blocks to define triggers, like
+# 	cmd_bind('help') { |args| ... }
+# This way, I can choose to send args to the block in cmd_bind based on
+# whether or not it exists.
 
-module Triggers
+module Commands
 	def help *args
-		if args
+		if args.empty?
 			# do stuff
 		else
 			say "Triggers: \x02calc\x02 (c), \x02imgur\x02 (ir, i), \x02weather\x02 (w), \x02translate\x02 (tl, t), \x02stocks\x02 (s), \x02define\x02 (d), \x02tell\x02"
 		end
 	end
 	
-	def reload
+	def reload *args
 		# close and reopen script (*nix only)
-		system "kill -9 #{$$}; ruby -w #{@filename}" if permission
+		owner? do
+			cmd 'QUIT :(reloading)'
+			system "kill -9 #{$$}; ruby -w #{@filename}"
+		end
 	end
 	
-	def rt
+	def rt *args
 		# reload triggers.rb only (this file)
-		load __FILE__ if permission
+		owner? { load __FILE__ }
 	end
 	
 	def calc args
@@ -97,24 +109,31 @@ module Triggers
 	alias_method :tl, :translate
 	alias_method :t, :translate
 	
-	def stocks symbol
-		r = (LibXML::XML::Parser.string Net::HTTP.get URI.parse "http://www.google.com/ig/api?stock=#{symbol}").parse
-		derp = r.find('//finance/*').map { |x| x if %w{company exchange currency last high low volume change perc_change}.include? x.name }
-		derp.delete nil
-		company, exchange, currency, last, high, low, volume, change, perc_change = derp.map { |x| x['data'] }
-		unless company.empty?
-			say "Stock information for \x02#{company}\x02 (#{exchange}, #{currency}): \x02Last\x02 #{last}; \x02High\x02 #{high}; \x02Low\x02 #{low}; \x02Volume\x02 #{volume}; \x02Change\x02 #{change} (#{perc_change}%)"
-		else
-			onoez! "\"#{symbol}\" is probably an invalid symbol"
+	def stocks symbols
+		symbols.split(' ').each do |symbol|
+			r = (LibXML::XML::Parser.string Net::HTTP.get URI.parse "http://www.google.com/ig/api?stock=#{symbol}").parse
+			derp = r.find('//finance/*').map { |x| x if %w{company exchange currency last high low volume change perc_change}.include? x.name }
+			derp.delete nil
+			company, exchange, currency, last, high, low, volume, change, perc_change = derp.map { |x| x['data'] }
+			unless company.empty?
+				say "Stock information for \x02#{company}\x02 (#{exchange}, #{currency}): \x02Last\x02 #{last}; \x02High\x02 #{high}; \x02Low\x02 #{low}; \x02Volume\x02 #{volume}; \x02Change\x02 #{change} (#{perc_change}%)"
+			else
+				onoez! "\"#{symbol}\" is probably an invalid symbol"
+			end
 		end
 	end
 	alias_method :s, :stocks
 	
-	def define
+	def define query
 	end
 	alias_method :d, :define
 	
-	def tell
+	def thesaurus query
+	end
+	alias_method :synonyms, :thesaurus
+	alias_method :th, :thesaurus
+	
+	def tell args
 		
 	end
 end
