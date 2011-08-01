@@ -7,16 +7,21 @@
 
 module Triggers
 	def help *args
-		say "Triggers: \x02calc\x02 (c), \x02imgur\x02 (ir, i), \x02weather\x02 (w), \x02translate\x02 (tl, t), \x02stocks\x02 (s), \x02define\x02 (d), \x02tell\x02"
+		if args
+			# do stuff
+		else
+			say "Triggers: \x02calc\x02 (c), \x02imgur\x02 (ir, i), \x02weather\x02 (w), \x02translate\x02 (tl, t), \x02stocks\x02 (s), \x02define\x02 (d), \x02tell\x02"
+		end
 	end
 	
 	def reload
-		system "kill -9 #{$$}; ruby -w #{@filename}" if permissions
+		# close and reopen script (*nix only)
+		system "kill -9 #{$$}; ruby -w #{@filename}" if permission
 	end
 	
 	def rt
 		# reload triggers.rb only (this file)
-		load __FILE__ if permissions
+		load __FILE__ if permission
 	end
 	
 	def calc args
@@ -41,7 +46,7 @@ module Triggers
 				json = JSON.parse(response.body)
 				say url + " => " + json['upload']['links']['original']
 			else
-				say "Bad URL: '#{url}'"
+				onoez! "Bad URL: '#{url}'"
 			end
 		end
 	end
@@ -56,14 +61,14 @@ module Triggers
 			fc_days = 0
 			location = args
 		end
-		weather = Hpricot::XML Net::HTTP.get URI.parse("http://www.google.com/ig/api?weather=#{CGI.escape(location, /\W/)}")
-		condition, temp_f, temp_c, humidity = (weather/:current_conditions/:*).map {|x| x.attributes['data']}[1,4]
-		reply = "Weather in \x02#{weather.at('city').attributes['data']}\x02: #{temp_f}\xb0F (#{temp_c}\xb0C); #{condition}; #{humidity}"
+		weather = (LibXML::XML::Parser.string Net::HTTP.get URI.parse "http://www.google.com/ig/api?weather=#{CGI.escape location}").parse
+		condition, temp_f, temp_c, humidity = weather.find('//current_conditions/*').map {|x| x.attributes['data']}[0,4]
+		reply = "Weather in \x02#{weather.find('//city')[0]['data']}\x02: #{temp_f}\xb0F (#{temp_c}\xb0C); #{condition}; #{humidity}"
 		if fc_days > 0
-			weather.search("forecast_conditions").map { |w| 
-				(w/:*).map { |x| x } 
+			weather.find('//forecast_conditions').map { |w| 
+				w.children.map { |x| x }
 			}[0,fc_days].each { |y|
-				day_of_week, low, high, icon, condition = y.map { |z| z.attributes['data'] }[1,5]
+				day_of_week, low, high, icon, condition = y.map { |z| z['data'] }[0,5]
 				reply << "\n\x02#{day_of_week}\x02: #{low}-#{high}\xb0F; #{condition}"
 			}
 		end
@@ -92,12 +97,15 @@ module Triggers
 	alias_method :tl, :translate
 	alias_method :t, :translate
 	
-	def stocks args
-		r = Hpricot::XML Net::HTTP.get URI.parse "http://www.google.com/ig/api?stock=#{args}"
-		unless r.at(:company)['data'].empty?
-			say "Stock information for \x02#{r.at(:company)['data']}\x02 (#{r.at(:exchange)['data']}, #{r.at(:currency)['data']}): \x02Last\x02 #{r.at(:last)['data']}; \x02High\x02 #{r.at(:high)['data']}; \x02Low\x02 #{r.at(:low)['data']}; \x02Volume\x02 #{r.at(:volume)['data']}; \x02Change\x02 #{r.at(:change)['data']} (#{r.at(:perc_change)['data']}%)"
+	def stocks symbol
+		r = (LibXML::XML::Parser.string Net::HTTP.get URI.parse "http://www.google.com/ig/api?stock=#{symbol}").parse
+		derp = r.find('//finance/*').map { |x| x if %w{company exchange currency last high low volume change perc_change}.include? x.name }
+		derp.delete nil
+		company, exchange, currency, last, high, low, volume, change, perc_change = derp.map { |x| x['data'] }
+		unless company.empty?
+			say "Stock information for \x02#{company}\x02 (#{exchange}, #{currency}): \x02Last\x02 #{last}; \x02High\x02 #{high}; \x02Low\x02 #{low}; \x02Volume\x02 #{volume}; \x02Change\x02 #{change} (#{perc_change}%)"
 		else
-			onoez! "\"#{args}\" is probably an invalid symbol"
+			onoez! "\"#{symbol}\" is probably an invalid symbol"
 		end
 	end
 	alias_method :s, :stocks

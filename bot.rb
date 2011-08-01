@@ -1,19 +1,28 @@
+#!/usr/bin/env ruby -w
 # encoding: UTF-8
 
-%w{json net/http socket hpricot cgi htmlentities}.each { |r| require r }
+%w{json net/http socket libxml cgi htmlentities}.each { |r| require r }
 load 'triggers.rb'
 
 # command prefixes
 $prefixes = ["]", "."]
 # matches hostmasks of people who are allowed to use maintenance etc features
-$admin_hostmasks = //
+$admin_hostmasks = /moshee@mo\.sh\.ee|24.16.155.210/
 $api_keys = {
-	:imgur		=>	"",
-	:dictionary	=>	""
+	:imgur		=>	"86479b06ff689612409190829dd46576",
+	:dictionary	=>	"ukgjitziiotr3nb3xwo99uzv0iovuc3pwk8fe8yxwr"
 }
 # makes the google dictionary api work properly
 $byte_killer = Iconv.new 'UTF-8//IGNORE', 'UTF-8'
-
+# for the tell command
+begin
+	File::open('tell.txt') { |f| $tell = JSON.parse f.read }
+rescue Errno::ENOENT
+	File.new('tell.txt', 'w') { |f| f.write '{}'}
+	retry
+rescue JSON::ParserError
+	
+end
 
 class RBot
 	@@copy = 0
@@ -39,7 +48,7 @@ class RBot
 	
 	def onoez! problem = ''
 		reply = "I am error"
-		reply << " (#{reason})" unless problem.empty?
+		reply << " (#{problem})" unless problem.empty?
 		say reply
 	end
 
@@ -58,14 +67,16 @@ class RBot
 			@nick = @source[/[^~!]+/] if @source != nil
 			self.send @raw_command.downcase! if @raw_command and @message
 		rescue NoMethodError
-			puts "*** [ThingDoer.handle] NoMethodError: #{$!}"
+			puts "*** [RBot.handle] NoMethodError: #{$!}"
 		rescue ArgumentError
 			say "Argument Error: #{$!}"
+			puts $!.backtrace
 		end
 	end
 	
 	def privmsg
-		if ['#','&'].include? @target[0] and $prefixes.include? @message.slice! 0	# public message
+		# public channel message (lol irc protocol)
+		if ['#','&'].include? @target[0] and $prefixes.include? @message.slice! 0
 			command, lol, args = @message.partition ' '
 			self.send command, args
 		end
@@ -100,7 +111,7 @@ class RBot
 					puts "<-- #{line.chomp!}"
 					handle line
 				rescue Exception
-					puts "*** #{$!}"
+					puts "*** [Main Loop] #{$!}"
 					retry
 				end
 			end
@@ -123,3 +134,5 @@ end
 
 this = RBot.new("irc.rizon.net", 6667, "mosfet`rb", "Ruby-Passivated Junction", ["#moshee"])
 this.connect
+
+#END { File::open('tell.txt', 'w') { |f| f.write $tell.to_json } }
