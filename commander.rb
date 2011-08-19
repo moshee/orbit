@@ -1,23 +1,25 @@
 # encoding: UTF-8
 # file: commander.rb
-#
-# This file contains the Commander class which holds all of the commands. It
-# should not be run by itself. The class is used in the RBot class.
-#
-# All methods defined here are sent exactly one string, whether it be empty or
-# not, so they need a space to accept them (or else we get an argument error).
-#
-# Later, I will probably try a mechanism to use blocks to define triggers, like
-# 	cmd_bind('help') { |args| ... }
-# This way, I can choose to send args to the block in cmd_bind based on whether
-# or not it exists. It will also remove collision with Kernel and Object
-# methods.
+
+=begin
+This file contains the Commander class which holds all of the commands. It
+should not be run by itself. The class is used in the RBot class.
+
+All methods defined here are sent exactly one string, whether it be empty or
+not, so they need a space to accept them (or else we get an argument error).
+
+Later, I will probably try a mechanism to use blocks to define triggers, like
+	cmd_bind('help') { |args| ... }
+This way, I can choose to send args to the block in cmd_bind based on whether
+or not it exists. It will also remove collision with Kernel and Object
+methods.
+=end
 
 class Commander
 	include IRC
 	
 	def initialize bot
-		@bot = bot
+		@bot, @sock = bot, bot.sock
 	end
 		
 	def help args
@@ -31,15 +33,18 @@ class Commander
 	def reload *args
 		# close and reopen script (*nix only)
 		admin? do
-			cmd 'QUIT :reloading'
-			system "kill -9 #{$$}; screen -U #{$filename}"
+			Thread.new do
+				cmd 'QUIT :reloading'
+				exit!
+			end
+			system "screen -U ./#{@bot.filename}"
 		end
 	end
 	
 	def die *args
 		admin? do
 			cmd 'QUIT :okay ;_;'
-			system "kill -9 #{$$}"
+			exit!
 		end
 	end
 	
@@ -143,21 +148,22 @@ class Commander
 	alias_method :s, :stocks
 	
 	def define query
-		response = (LibXML::XML::Parser.string Net::HTTP.post_form(URI.parse 'http://api-pub.dictionary.com/v001', {
-				'vid'	=>	$api_keys[:dictionary],
-				'q'		=>	query,
-				'type'	=>	'define',
-				'site'	=>	'dictionary'
-			})).parse
-		display_form, definitions = response.find('//display_form')[0].content, response.find('//partofspeech')
-		n = definitions.length <= 3 ? definitions.length : 3
-		definitions.map { |entry| }
-		a.each { |x| print "[#{x['pos']}]"; x.find('//def').each {|y| print "#{y}"} }
+		
 	end
 	alias_method :d, :define
 	
 	def thesaurus query
-	#	syns = entries.gsub(/<a.+?>(\w+)<\/a>/, "\\1").split(", ")
+		n = 10
+		if query[-3..-1].match(/n:([0-3][0-9]?)/) and not (n = $1.to_i) == 0
+			query = query[0..-4]
+		end
+		response = (LibXML::XML::Parser.string Net::HTTP.get URI.parse "http://api-pub.dictionary.com/v001?vid=#{$api_keys[:dictionary]}&q=#{query}&type=define&site=thesaurus").parse
+		if items = response.find('//synonyms/item').empty?
+			syns = response.find('//synonyms').map { |entry| entry.content.gsub(/<a.+?>(\w+)<\/a>/, "\\1").split(', ') }.flatten
+		else
+			syns = items.map { |item| item.content }
+		end
+		n.times
 	end
 	alias_method :synonyms, :thesaurus
 	alias_method :th, :thesaurus

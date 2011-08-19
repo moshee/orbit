@@ -5,16 +5,10 @@
 
 module IRC
 	private
-	def ping
-		cmd "PONG :#{$message}"
-	end
-	
-	def notice
-	end
 	
 	def cmd str
 		puts "--> #{str}"
-		$sock.send "#{str}\r\n", 0
+		@sock.send "#{str}\r\n", 0
 	end
 	
 	def say str, target = $target
