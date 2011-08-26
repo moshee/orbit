@@ -21,12 +21,7 @@ $chans	||= []
 $prefixes = ["]", "."]
 
 # matches hostmasks of people who are allowed to use maintenance etc features
-$admin_hostmasks = /moshee@mo\.sh\.ee|24.16.155.210/
-
-$api_keys = {
-	:imgur			=>	"",
-	:dictionary	=>	""
-}
+$admin_hostmasks = //
 
 # makes the google dictionary api work properly
 $byte_killer = Iconv.new 'UTF-8//IGNORE', 'UTF-8'
