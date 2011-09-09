@@ -1,0 +1,36 @@
+# file: config.yml
+# Remember: whitespace is always significant in YAML
+
+# command prefixes
+#
+prefixes:
+    - ']'
+    - '.'
+    - ','
+    - '!'
+
+# Hostmasks of those who are allowed to use protected features.
+# Regular expression without the slashes.
+#
+admins: ''
+
+# IRC log files (blank or 'false' for no log)
+#
+log: no
+
+# Servers to connect to and channels to join.
+# Referenced in numeric order.
+# Usage example:
+#	$ ./bot.rb -p 1
+#	$ ./bot.rb --profile 1
+#	Both will select profile 1.
+#
+# Channel names need to be quoted.
+#
+profiles:
+    freenode:
+        server: chat.freenode.net
+        port: 6667
+        nick: orbitbot
+        join:
+            - '#roboworld'
